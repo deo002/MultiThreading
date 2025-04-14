@@ -51,6 +51,9 @@ int main(int argc, char **argv) {
 
 	glthread_node_t* start = emp_list->head;
 	do {
+		if(start == NULL) {
+			break;
+		}
 		emp_t *ptr = (emp_t *)((char *)start - emp_list->offset);
 		print_emp_details(ptr);
 		printf("\n");
