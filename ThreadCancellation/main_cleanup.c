@@ -2,25 +2,24 @@
 #include<pthread.h>
 #include<unistd.h>
 #include<stdlib.h>
+#include<errno.h>
 
 #define N 10
 
 pthread_t handles[N];
 
-// Asynchronous mode of thread cancellation can cause 
-// some of the file descriptors/sockets to remain open
-// forever. It may also cause some heap memory to stay allocated
-// (free was not called).
-// The issue is dealt with the help of cleanup handlers.
+void mem_cleanup_handler(void *arg) {
+    free(arg);
+}
 
-// It can also cause invariants(data structure corruption).
-// Ex. thread was cancelled while a doubly linkedlist node was being deleted. 
+void file_handler_cleanup_handler(void *arg) {
+    fclose(arg);
+}
 
-// It can also cause deadlocks(mutex stays locked forever)
 void *thread_fn_callback(void *arg) {
+    pthread_cleanup_push(mem_cleanup_handler, arg);
     unsigned int* t_id = (unsigned int *)arg;
     unsigned int id = *t_id;
-    free(t_id);
 
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
@@ -28,12 +27,29 @@ void *thread_fn_callback(void *arg) {
     char filename[100];
     sprintf(filename, "thread_%u.txt", id);
     FILE* file_ptr = fopen(filename, "a");
+    if(file_ptr == NULL) {
+        // return statement doesn't invoke the handlers, but pthread_exit does.
+        // So, instead of return, it would be a better idea to use pthread_exit.
+        printf("Couldn't open file %s, errno= %d\n", filename, errno);
+        pthread_exit(0); 
+    }
+    pthread_cleanup_push(file_handler_cleanup_handler, file_ptr);
 
     while(1) {
         fprintf(file_ptr, "Thread with id %u running\n", id);
         fflush(file_ptr);
         sleep(1);
     }
+
+    // passing them a non zero value as arg ensures that handlers are executed as well
+    // as popped out
+    // passing them a zero value just pops them out without executing them
+
+    // So, when the loop stops executing and the funtion terminates normally, 
+    // the cleanup handlers will still be called and popped out
+    pthread_cleanup_pop(1);
+    pthread_cleanup_pop(1);
+    return 0;
 }
 
 int main() {
