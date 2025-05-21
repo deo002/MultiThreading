@@ -18,14 +18,30 @@ pthread_t *create_listener_thread(char *ip_addr, unsigned int port,
 
   return handle;
 }
+static void handle_free_args(void *args) { free(args); }
+
+static void handle_close_socket(void *arg) {
+  int socketfd = *(int *)arg;
+  close(socketfd);
+}
+
+static void handle_free_buffer(void *buffer) { free(buffer); }
 
 static void *udp_server_create_and_start(void *args) {
+  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+  pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
+
+  pthread_cleanup_push(handle_free_args, args);
+
   network_thread_t *_args = args;
 
   int socketfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
   if (socketfd < 0) {
     perror("Unable to open socket");
+    pthread_exit(0);
   }
+
+  pthread_cleanup_push(handle_close_socket, &socketfd);
 
   struct sockaddr_in listener_addr, client_addr;
   listener_addr.sin_family = AF_INET;
@@ -35,9 +51,12 @@ static void *udp_server_create_and_start(void *args) {
   if (bind(socketfd, (struct sockaddr *)&listener_addr, sizeof(listener_addr)) <
       0) {
     perror("Unable to bind socket");
+    pthread_exit(0);
   }
 
   char *recv_buffer = calloc(1, MAX_RECV_BUFFER_SIZE);
+
+  pthread_cleanup_push(handle_free_buffer, recv_buffer);
 
   int bytes_recvd = 0, len = sizeof(client_addr);
 
@@ -51,7 +70,12 @@ static void *udp_server_create_and_start(void *args) {
     inet_ntop(AF_INET, &client_addr.sin_addr.s_addr, ip, (socklen_t)len);
 
     _args->recv_fn(recv_buffer, bytes_recvd);
+    pthread_testcancel();
   }
+
+  pthread_cleanup_pop(1);
+  pthread_cleanup_pop(1);
+  pthread_cleanup_pop(1);
 
   return NULL;
 }

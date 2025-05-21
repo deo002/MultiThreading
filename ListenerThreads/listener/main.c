@@ -2,8 +2,7 @@
 #include <pthread.h>
 #include <stdio.h>
 
-void recieve_function(char *buffer, unsigned int buffer_size, char *ip,
-                      unsigned int port) {
+void recieve_function(char *buffer, unsigned int buffer_size) {
   printf("%s() : pkt recvd = %s, pkt size = %u\n", __FUNCTION__, buffer,
          buffer_size);
 }

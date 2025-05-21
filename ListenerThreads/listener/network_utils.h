@@ -10,6 +10,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 #define MAX_RECV_BUFFER_SIZE 256
 
@@ -31,5 +32,11 @@ static void *udp_server_create_and_start(void *args);
 char *network_covert_ip_n_to_p(uint32_t ip_addr, char *output_buffer);
 
 uint32_t network_covert_ip_p_to_n(char *ip_addr);
+
+static void handle_free_args(void *args);
+
+static void handle_free_buffer(void *buffer);
+
+static void handle_close_socket(void *socketfd);
 
 #endif
