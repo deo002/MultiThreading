@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define N_PHILOSOPHER 5
+#define N_PHILOSOPHER 10
 
 static phil_t phil[N_PHILOSOPHER];
 static spoon_t spoon[N_PHILOSOPHER];
@@ -70,7 +70,7 @@ bool philosopher_get_access_both_spoons(phil_t *phil) {
   bool gets_access = true;
 
   pthread_mutex_lock(&left_spoon->mutex);
-  pthread_mutex_lock(&right_spoon->mutex);
+
   printf("Philosopher %d tries to access left spoon %d\n", phil->phil_id,
          left_spoon->spoon_id);
   while (left_spoon->is_used) {
@@ -83,13 +83,18 @@ bool philosopher_get_access_both_spoons(phil_t *phil) {
   left_spoon->phil = phil;
   printf("Philosopher %d acquired left spoon %d\n", phil->phil_id,
          left_spoon->spoon_id);
+  pthread_mutex_unlock(&left_spoon->mutex);
+
+  pthread_mutex_lock(&right_spoon->mutex);
 
   if (right_spoon->is_used) {
     printf("Philosopher %d failed to acquire right spoon %d, leaving left "
            "spoon %d as well\n",
            phil->phil_id, right_spoon->spoon_id, left_spoon->spoon_id);
+    pthread_mutex_lock(&left_spoon->mutex);
     left_spoon->is_used = false;
     left_spoon->phil = NULL;
+    pthread_mutex_unlock(&left_spoon->mutex);
     gets_access = false;
   } else {
     printf("Philosopher %d successfully acquired both spoons %d & %d\n",
@@ -99,8 +104,6 @@ bool philosopher_get_access_both_spoons(phil_t *phil) {
   }
 
   pthread_mutex_unlock(&right_spoon->mutex);
-
-  pthread_mutex_unlock(&left_spoon->mutex);
 
   return gets_access;
 }
